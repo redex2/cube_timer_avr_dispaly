@@ -1,10 +1,6 @@
 #include <avr/io.h>
 #include <avr/wdt.h>
 #include <avr/interrupt.h>
-#define F_CPU 11059200
-#include <util/delay.h>
-
-
 
 /*
 //      a
@@ -21,14 +17,14 @@
 //
 */
 
-#define LED_A 1<<6
-#define LED_B 1<<3
-#define LED_C 1<<2
-#define LED_D 1<<4
-#define LED_E 1<<0
-#define LED_F 1<<1
-#define LED_G 1<<5
-#define LED_H 1<<7
+#define LED_A (1<<6)
+#define LED_B (1<<3)
+#define LED_C (1<<2)
+#define LED_D (1<<4)
+#define LED_E (1<<0)
+#define LED_F (1<<1)
+#define LED_G (1<<5)
+#define LED_H (1<<7)
 
 #define LED_0 (LED_A|LED_B|LED_C|LED_D|LED_E|LED_F)
 #define LED_1 (LED_B|LED_C)
@@ -41,8 +37,16 @@
 #define LED_8 (LED_A|LED_B|LED_C|LED_D|LED_E|LED_F|LED_G)
 #define LED_9 (LED_A|LED_B|LED_D|LED_C|LED_F|LED_G)
 
-uint8_t display_data[6]={LED_G|LED_H, LED_G, LED_G|LED_H, LED_G, LED_G, LED_G};
-const uint8_t digits[10] = {LED_0, LED_1, LED_2, LED_3, LED_4, LED_5, LED_6, LED_7, LED_8, LED_9};
+uint8_t display_data[6]		= {LED_G|LED_H, LED_G, LED_G|LED_H, LED_G, LED_G, LED_G};
+const uint8_t digits[10]	= {LED_0, LED_1, LED_2, LED_3, LED_4, LED_5, LED_6, LED_7, LED_8, LED_9};
+
+#define		rcv_data_size 11
+#define		rcv_timeout_threshold 0xFF
+
+uint8_t		rcv_data[rcv_data_size];
+
+uint16_t	rcv_timeout		= 0xFFFF;
+uint8_t		display_index	= 0;
 
 int main(void)
 {
@@ -54,6 +58,8 @@ int main(void)
 	DDRB |= 255;//set PB as out
 	DDRD |= 0b01111110;//set PD as out
 	
+	DDRA |= 0b10;//PA not gate
+	
 	//clear timer
 	TCCR1A=0x00;
 	TCCR1B=0x00;
@@ -61,9 +67,9 @@ int main(void)
 	TCNT1L=0x00;
 	
 	// OCR1A=7999 - 8MHz
-	OCR1AH=0x23;
-	OCR1AL=0xff;
-
+	OCR1AH=0x1F;
+	OCR1AL=0x3F;
+	
 	//unused
 	OCR1BH=0xff;
 	OCR1BL=0xff;
@@ -77,7 +83,15 @@ int main(void)
 	//timer 1 control reg 
 	TCCR1A=0x00;
 	TCCR1B=0x09;
-
+	
+	
+	//USART
+	UCSRA=0;
+	UCSRB=(1<<RXCIE)|(1<<RXEN);
+	UCSRC=(1<<UCSZ1)|(1<<UCSZ1);
+	//1200bps@8MHz
+	UBRRH=0x01;
+	UBRRL=0xA0;
 	
 	asm("wdr");
 	asm("sei");
@@ -86,19 +100,69 @@ int main(void)
     while (1) 
     {
 		asm("wdr");
+		PORTA=((~(PINA&1))<<1)&0b10;//NOT GATE on PORTA :P Cube timer has inverse logic. I do not want use external not gate, you will connect PA1 to PD0 and PA0 to timer
     }
 }
 
-uint8_t display_index = 0;
-
 SIGNAL(TIMER1_COMPA_vect)
 {
+	asm("wdr");
 	PORTD|=0b01111110;
 	PORTB=display_data[display_index];
 	PORTD=((~(1<<(display_index+1)))&0b01111110)|(PORTD&(~0b01111110));
+	
 	display_index++;
 	if(display_index>5)
 	{
 		display_index=0;
+	}
+	
+	if(rcv_timeout<0xFFFF) rcv_timeout++;
+	
+	if(rcv_timeout > rcv_timeout_threshold)
+	{
+		display_data[0]=LED_G|LED_H;
+		display_data[1]=LED_G;
+		display_data[2]=LED_G|LED_H;
+		display_data[3]=LED_G;
+		display_data[4]=LED_G;
+		display_data[5]=LED_G;
+	}
+}
+
+SIGNAL(USART_RX_vect)
+{
+	for(uint8_t i = (rcv_data_size-1); i > 0; i--) rcv_data[i] = rcv_data[i-1];
+	rcv_data[0] = UDR;
+	UDR = 0;
+	
+	if(rcv_data[0]=='\n' && rcv_data[1]>=64)
+	{
+		uint8_t n	= 0;
+		uint8_t sum	= 64;
+		for(uint8_t i = 2; i < rcv_data_size; i++)
+		{
+			if(rcv_data[i] >= '0' && rcv_data[i] <= '9') 
+			{
+				n++;
+				sum+=(rcv_data[i]-48);
+			}
+			else 
+			{
+				break;
+			}
+		}
+		uint8_t tmp = rcv_data[2+n];
+		if((n == 5 || n == 6) && rcv_data[1] == sum && (tmp == ' ' || (tmp >= 'A' && tmp <= 'Z')))
+		{
+			rcv_timeout = 0;
+			display_data[0] = digits[(rcv_data[7]-48)]|LED_H;
+			display_data[1] = digits[(rcv_data[6]-48)];
+			display_data[2] = digits[(rcv_data[5]-48)]|LED_H;
+			display_data[3] = digits[(rcv_data[4]-48)];
+			display_data[4] = digits[(rcv_data[3]-48)];
+			if(n==6) display_data[5] = digits[(rcv_data[2]-48)];
+			else display_data[5] = 0; //older timers not send thousandths of a second
+		}
 	}
 }
