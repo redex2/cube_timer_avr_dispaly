@@ -156,8 +156,23 @@ SIGNAL(USART_RX_vect)
 		if((n == 5 || n == 6) && rcv_data[1] == sum && (tmp == ' ' || (tmp >= 'A' && tmp <= 'Z')))
 		{
 			rcv_timeout = 0;
-			display_data[0] = digits[(rcv_data[7]-48)]|LED_H;
-			display_data[1] = digits[(rcv_data[6]-48)];
+			if((rcv_data[7]-48))
+			{
+				display_data[0] = digits[(rcv_data[7]-48)]|LED_H;
+				display_data[1] = digits[(rcv_data[6]-48)];
+			}
+			else
+			{
+				display_data[0] = 0;
+				if((rcv_data[6]-48))
+				{
+					display_data[1] = digits[(rcv_data[6]-48)];
+				}
+				else
+				{
+					display_data[1] = 0;
+				}
+			}
 			display_data[2] = digits[(rcv_data[5]-48)]|LED_H;
 			display_data[3] = digits[(rcv_data[4]-48)];
 			display_data[4] = digits[(rcv_data[3]-48)];
