@@ -41,7 +41,7 @@ uint8_t display_data[6]		= {LED_G|LED_H, LED_G, LED_G|LED_H, LED_G, LED_G, LED_G
 const uint8_t digits[10]	= {LED_0, LED_1, LED_2, LED_3, LED_4, LED_5, LED_6, LED_7, LED_8, LED_9};
 
 #define		rcv_data_size 11
-#define		rcv_timeout_threshold 0xFF
+#define		rcv_timeout_threshold 0x1FF
 
 uint8_t		rcv_data[rcv_data_size];
 
