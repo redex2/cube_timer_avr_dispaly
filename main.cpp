@@ -54,11 +54,14 @@ int main(void)
     WDTCR |= (1<<WDCE) | (1<<WDE);
     WDTCR = (1<<WDE) | (1<<WDP2) | (1<<WDP1) | (1<<WDP0);
     asm("wdr");
-    //uint8_t sreg_tmp;
+    
 	DDRB |= 255;//set PB as out
 	DDRD |= 0b01111110;//set PD as out
 	
 	DDRA |= 0b10;//PA not gate
+	
+	PRR = (1<<PRTIM0)|(1<<PRUSI); //turn off timer0 and USI
+	ACSR |= (1<<ACD); //turn off analog comparator
 	
 	//clear timer
 	TCCR1A=0x00;
@@ -67,8 +70,11 @@ int main(void)
 	TCNT1L=0x00;
 	
 	// OCR1A=7999 - 8MHz
-	OCR1AH=0x1F;
-	OCR1AL=0x3F;
+	//OCR1AH=0x1F;
+	//OCR1AL=0x3F;
+	// OCR1A=3999 - 4MHz
+	OCR1AH=0x0F;
+	OCR1AL=0x9F;
 	
 	//unused
 	OCR1BH=0xff;
@@ -90,8 +96,12 @@ int main(void)
 	UCSRB=(1<<RXCIE)|(1<<RXEN);
 	UCSRC=(1<<UCSZ1)|(1<<UCSZ1);
 	//1200bps@8MHz
-	UBRRH=0x01;
-	UBRRL=0xA0;
+	//UBRRH=0x01;
+	//UBRRL=0xA0;
+	
+	//1200bps@4MHz
+	UBRRH=0x00;
+	UBRRL=0xCF;
 	
 	asm("wdr");
 	asm("sei");
