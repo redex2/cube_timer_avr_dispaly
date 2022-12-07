@@ -98,7 +98,6 @@ int main(void)
 	//1200bps@8MHz
 	//UBRRH=0x01;
 	//UBRRL=0xA0;
-	
 	//1200bps@4MHz
 	UBRRH=0x00;
 	UBRRL=0xCF;
