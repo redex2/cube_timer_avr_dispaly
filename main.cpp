@@ -52,13 +52,12 @@ int main(void)
 {
     asm("wdr");
     WDTCR |= (1<<WDCE) | (1<<WDE);
-    WDTCR = (1<<WDE) | (1<<WDP2) | (1<<WDP1) | (1<<WDP0);
+    WDTCR = (1<<WDE) | (1<<WDP1) | (1<<WDP0);
     asm("wdr");
     
 	DDRB |= 255;//set PB as out
-	DDRD |= 0b01111110;//set PD as out
-	
-	DDRA |= 0b10;//PA not gate
+	DDRD |= 0b01111110;//set PD as out and PD0(rx) as input
+	PORTD |= 1; //PD0 pull-up
 	
 	PRR = (1<<PRTIM0)|(1<<PRUSI); //turn off timer0 and USI
 	ACSR |= (1<<ACD); //turn off analog comparator
@@ -69,9 +68,6 @@ int main(void)
 	TCNT1H=0x00;
 	TCNT1L=0x00;
 	
-	// OCR1A=7999 - 8MHz
-	//OCR1AH=0x1F;
-	//OCR1AL=0x3F;
 	// OCR1A=3999 - 4MHz
 	OCR1AH=0x0F;
 	OCR1AL=0x9F;
@@ -94,10 +90,7 @@ int main(void)
 	//USART
 	UCSRA=0;
 	UCSRB=(1<<RXCIE)|(1<<RXEN);
-	UCSRC=(1<<UCSZ1)|(1<<UCSZ1);
-	//1200bps@8MHz
-	//UBRRH=0x01;
-	//UBRRL=0xA0;
+	UCSRC=(1<<UCSZ1)|(1<<UCSZ0);
 	//1200bps@4MHz
 	UBRRH=0x00;
 	UBRRL=0xCF;
@@ -109,7 +102,6 @@ int main(void)
     while (1) 
     {
 		asm("wdr");
-		PORTA=((~(PINA&1))<<1)&0b10;//NOT GATE on PORTA :P Cube timer has inverse logic. I do not want use external not gate, you will connect PA1 to PD0 and PA0 to timer
     }
 }
 
