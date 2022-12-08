@@ -90,7 +90,7 @@ int main(void)
 	//USART
 	UCSRA=0;
 	UCSRB=(1<<RXCIE)|(1<<RXEN);
-	UCSRC=(1<<UCSZ1)|(1<<UCSZ0);
+	UCSRC=(1<<UCSZ1);
 	//1200bps@4MHz
 	UBRRH=0x00;
 	UBRRL=0xCF;
