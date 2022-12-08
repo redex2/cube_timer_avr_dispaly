@@ -99,10 +99,7 @@ int main(void)
 	asm("sei");
 	asm("wdr");
 	
-    while (1) 
-    {
-		asm("wdr");
-    }
+    while (1) asm("nop");
 }
 
 SIGNAL(TIMER1_COMPA_vect)
