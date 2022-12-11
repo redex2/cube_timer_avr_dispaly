@@ -17,14 +17,14 @@
 //
 */
 
-#define LED_A (1<<6)
-#define LED_B (1<<3)
+#define LED_A (1<<7)
+#define LED_B (1<<0)
 #define LED_C (1<<2)
 #define LED_D (1<<4)
-#define LED_E (1<<0)
-#define LED_F (1<<1)
-#define LED_G (1<<5)
-#define LED_H (1<<7)
+#define LED_E (1<<5)
+#define LED_F (1<<6)
+#define LED_G (1<<1)
+#define LED_H (1<<3)
 
 #define LED_0 (LED_A|LED_B|LED_C|LED_D|LED_E|LED_F)
 #define LED_1 (LED_B|LED_C)
@@ -46,6 +46,7 @@ const uint8_t digits[10]	= {LED_0, LED_1, LED_2, LED_3, LED_4, LED_5, LED_6, LED
 uint8_t		rcv_data[rcv_data_size];
 
 uint16_t	rcv_timeout		= 0xFFFF;
+uint8_t		rcv_timeout_s	= 0;
 uint8_t		display_index	= 0;
 
 int main(void)
@@ -57,7 +58,8 @@ int main(void)
     
 	DDRB |= 255;//set PB as out
 	DDRD |= 0b01111110;//set PD as out and PD0(rx) as input
-	PORTD |= 1; //PD0 pull-up
+	PORTB = 255;
+	PORTD = 255; //PD0 pull-up and out default
 	
 	PRR = (1<<PRTIM0)|(1<<PRUSI); //turn off timer0 and USI
 	ACSR |= (1<<ACD); //turn off analog comparator
@@ -106,7 +108,7 @@ SIGNAL(TIMER1_COMPA_vect)
 {
 	asm("wdr");
 	PORTD|=0b01111110;
-	PORTB=display_data[display_index];
+	PORTB=~display_data[display_index];
 	PORTD=((~(1<<(display_index+1)))&0b01111110)|(PORTD&(~0b01111110));
 	
 	display_index++;
@@ -115,16 +117,42 @@ SIGNAL(TIMER1_COMPA_vect)
 		display_index=0;
 	}
 	
-	if(rcv_timeout<0xFFFF) rcv_timeout++;
-	
-	if(rcv_timeout > rcv_timeout_threshold)
+	if(rcv_timeout<1000) 
 	{
-		display_data[0]=LED_G|LED_H;
-		display_data[1]=LED_G;
-		display_data[2]=LED_G|LED_H;
-		display_data[3]=LED_G;
-		display_data[4]=LED_G;
-		display_data[5]=LED_G;
+		rcv_timeout++;
+	}
+	else
+	{
+		rcv_timeout=0;
+		if(rcv_timeout_s<255)
+		{
+			rcv_timeout_s++;
+			if(rcv_timeout_s<20)
+			{
+				display_data[0]=LED_G|LED_H;
+				display_data[1]=LED_G;
+				display_data[2]=LED_G|LED_H;
+				display_data[3]=LED_G;
+				display_data[4]=LED_G;
+				display_data[5]=LED_G;
+			}
+			else
+			{
+				display_data[0]=0;
+				display_data[1]=0;
+				display_data[2]=0;
+				display_data[3]=0;
+				display_data[4]=0;
+				display_data[5]=0;
+			}
+		}
+		else
+		{
+			WDTCR |= (1<<WDCE)|(1<<WDE);
+			MCUCR |= (1>>SM0)|(1<<SM1)|(1<<PUD);
+			WDTCR = 0;
+			MCUCR |= (1<<SE);
+		}
 	}
 }
 
@@ -154,6 +182,7 @@ SIGNAL(USART_RX_vect)
 		if((n == 5 || n == 6) && rcv_data[1] == sum && (tmp == ' ' || (tmp >= 'A' && tmp <= 'Z')))
 		{
 			rcv_timeout = 0;
+			rcv_timeout_s = 0;
 			if((rcv_data[7]-48))
 			{
 				display_data[0] = digits[(rcv_data[7]-48)]|LED_H;
