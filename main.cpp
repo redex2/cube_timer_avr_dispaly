@@ -41,13 +41,13 @@ uint8_t display_data[6]		= {LED_G|LED_H, LED_G, LED_G|LED_H, LED_G, LED_G, LED_G
 const uint8_t digits[10]	= {LED_0, LED_1, LED_2, LED_3, LED_4, LED_5, LED_6, LED_7, LED_8, LED_9};
 
 #define		rcv_data_size 11
-#define		rcv_timeout_threshold 0x1FF
 
 uint8_t		rcv_data[rcv_data_size];
 
 uint16_t	rcv_timeout		= 0xFFFF;
 uint8_t		rcv_timeout_s	= 0;
 uint8_t		display_index	= 0;
+
 
 int main(void)
 {
@@ -95,7 +95,8 @@ int main(void)
 	UCSRC=(1<<UCSZ1);
 	//1200bps@4MHz
 	UBRRH=0x00;
-	UBRRL=0xCF;
+	UBRRL=0xCF;//1200
+	UBRRL=0xC9;//1234
 	
 	asm("wdr");
 	asm("sei");
@@ -111,11 +112,7 @@ SIGNAL(TIMER1_COMPA_vect)
 	PORTB=~display_data[display_index];
 	PORTD=((~(1<<(display_index+1)))&0b01111110)|(PORTD&(~0b01111110));
 	
-	display_index++;
-	if(display_index>5)
-	{
-		display_index=0;
-	}
+	if(++display_index>5)display_index=0;
 	
 	if(rcv_timeout<1000) 
 	{
@@ -124,34 +121,24 @@ SIGNAL(TIMER1_COMPA_vect)
 	else
 	{
 		rcv_timeout=0;
-		if(rcv_timeout_s<255)
+		if(rcv_timeout_s<60)
 		{
 			rcv_timeout_s++;
-			if(rcv_timeout_s<20)
-			{
-				display_data[0]=LED_G|LED_H;
-				display_data[1]=LED_G;
-				display_data[2]=LED_G|LED_H;
-				display_data[3]=LED_G;
-				display_data[4]=LED_G;
-				display_data[5]=LED_G;
-			}
-			else
-			{
-				display_data[0]=0;
-				display_data[1]=0;
-				display_data[2]=0;
-				display_data[3]=0;
-				display_data[4]=0;
-				display_data[5]=0;
-			}
+			display_data[0]=LED_G|LED_H;
+			display_data[1]=LED_G;
+			display_data[2]=LED_G|LED_H;
+			display_data[3]=LED_G;
+			display_data[4]=LED_G;
+			display_data[5]=LED_G;
 		}
 		else
 		{
-			WDTCR |= (1<<WDCE)|(1<<WDE);
-			MCUCR |= (1>>SM0)|(1<<SM1)|(1<<PUD);
-			WDTCR = 0;
-			MCUCR |= (1<<SE);
+			display_data[0]=0;
+			display_data[1]=0;
+			display_data[2]=LED_H;
+			display_data[3]=0;
+			display_data[4]=0;
+			display_data[5]=0;
 		}
 	}
 }
